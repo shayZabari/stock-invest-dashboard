@@ -1,0 +1,1826 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="60">
+<title>סוכן ההשקעות שלי</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; background:#0f1117; color:#e8e8e8; margin:0; padding:0; }
+  header { background:#161a23; padding:16px 24px; border-bottom:1px solid #2a2f3a; }
+  header h1 { margin:0; font-size:1.4rem; }
+  .updated { color:#9aa4b2; font-size:0.9rem; margin-top:4px; }
+  .warning { background:#3a2a10; color:#ffcf80; padding:10px 16px; margin:12px 24px; border-radius:6px; }
+  .tabs { display:flex; gap:8px; padding:16px 24px 0; }
+  .tab-btn { background:#1c2029; color:#c7cdd6; border:none; padding:10px 18px; border-radius:8px 8px 0 0; cursor:pointer; font-size:1rem; }
+  .tab-btn.active { background:#232a38; color:#fff; font-weight:bold; }
+  .tab-content { display:none; background:#232a38; padding:20px 24px; margin:0 24px 24px; border-radius:0 0 10px 10px; }
+  .tab-content.active { display:block; }
+  .summary { font-size:1.3rem; margin-bottom:16px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:right; padding:8px 10px; border-bottom:1px solid #333a48; }
+  th { color:#9aa4b2; font-weight:normal; }
+  .pos { color:#5fd88a; }
+  .neg { color:#ff7a7a; }
+  .trade-card { background:#1c2029; border-radius:8px; padding:12px 16px; margin-bottom:10px; border-right:4px solid #555; }
+  .trade-card.buy { border-right-color:#5fd88a; }
+  .trade-card.sell { border-right-color:#ff7a7a; }
+  .trade-head { display:flex; justify-content:space-between; }
+  .trade-date { color:#9aa4b2; font-size:0.9rem; }
+  .trade-reason { margin:6px 0; }
+  details summary { cursor:pointer; color:#9aa4b2; }
+  .stat-list { line-height:1.9; }
+  .glossary dt { font-weight:bold; margin-top:8px; }
+  .market-banner { display:flex; align-items:center; gap:16px; flex-wrap:wrap; background:#161a23; padding:10px 24px; border-bottom:1px solid #2a2f3a; font-size:0.95rem; color:#c7cdd6; }
+  .badge { padding:4px 12px; border-radius:20px; font-weight:bold; font-size:0.85rem; }
+  .badge.open { background:#1e3d2a; color:#5fd88a; }
+  .badge.closed { background:#3a2a2a; color:#ff9a7a; }
+  .countdown { color:#9aa4b2; }
+  .muted { color:#9aa4b2; }
+  .market-headline { font-size:1.05rem; }
+  .trend { padding:2px 10px; border-radius:12px; font-size:0.85rem; white-space:nowrap; }
+  .trend-up { background:#1e3d2a; color:#5fd88a; }
+  .trend-down { background:#3a2a2a; color:#ff7a7a; }
+  .trend-pullback { background:#3a331e; color:#ffcf80; }
+  .trend-recovery { background:#1e2f3d; color:#80c4ff; }
+  .trend-unknown { background:#2a2f3a; color:#9aa4b2; }
+  .perf-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px; margin-bottom:16px; }
+  .perf-card { background:#1c2029; border-radius:8px; padding:12px 14px; }
+  .perf-card.dim { opacity:0.6; }
+  .perf-label { color:#9aa4b2; font-size:0.9rem; }
+  .perf-value { font-size:1.4rem; font-weight:bold; margin:4px 0; }
+  .chart { background:#1c2029; border-radius:8px; padding:12px 14px; margin-bottom:16px; }
+  .chart svg { width:100%; height:200px; display:block; }
+  .chart .nav { fill:none; stroke:#5fd88a; stroke-width:2; vector-effect:non-scaling-stroke; }
+  .chart .bench { fill:none; stroke:#80c4ff; stroke-width:1.5; stroke-dasharray:4 3; vector-effect:non-scaling-stroke; }
+  .chart .zero { stroke:#333a48; stroke-width:1; vector-effect:non-scaling-stroke; }
+  .chart-legend { display:flex; gap:16px; margin-bottom:6px; font-size:0.9rem; }
+  .lg-nav { color:#5fd88a; } .lg-bench { color:#80c4ff; }
+  .chart-axis { display:flex; justify-content:space-between; color:#9aa4b2; font-size:0.8rem; direction:ltr; }
+  @media (max-width:600px) { .tabs { flex-wrap:wrap; padding:12px 12px 0; } .tab-content { margin:0 8px 16px; padding:14px; overflow-x:auto; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>סוכן ההשקעות שלי — סימולציה</h1>
+  <div class="updated">עודכן לאחרונה: 10/10/2026 21:20:02</div>
+</header>
+
+    <div class="market-banner">
+      <span class='badge closed'>השוק סגור</span>
+      <span class="market-times">שעון ניו יורק: 14:20 &nbsp;·&nbsp; השעון שלך: 21:20</span>
+      <span class="market-boundary">ייפתח ב-12/10 בשעה 16:30 (השעון שלך)</span>
+      <span class="countdown" id="countdown"></span>
+    </div>
+    <div class="warning" id="staleWarning" style="display:none;">
+      ⚠ המערכת לא התעדכנה בזמן הצפוי. ייתכן שהמשימה המתוזמנת (Task Scheduler) נכשלה — כדאי לבדוק.
+    </div>
+    <script>
+      (function() {
+        var isOpen = false;
+        var boundaryMs = 1791811800000;
+        var generatedMs = 1791656402933;
+        var staleAfterMs = 780000;
+        function fmtRemaining(ms) {
+          if (ms < 0) ms = 0;
+          var totalMin = Math.floor(ms / 60000);
+          var h = Math.floor(totalMin / 60);
+          var m = totalMin % 60;
+          return h + " שעות ו-" + m + " דקות";
+        }
+        function tick() {
+          var now = Date.now();
+          var remaining = boundaryMs - now;
+          var el = document.getElementById("countdown");
+          if (el) {
+            el.textContent = isOpen
+              ? ("נשאר למסחר: " + fmtRemaining(remaining))
+              : ("נותר עד הפתיחה: " + fmtRemaining(remaining));
+          }
+          var warn = document.getElementById("staleWarning");
+          if (warn) {
+            var tooStale = isOpen && (now - generatedMs) > staleAfterMs;
+            warn.style.display = tooStale ? "block" : "none";
+          }
+        }
+        tick();
+        setInterval(tick, 1000);
+      })();
+    </script>
+    
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('current', this)">מצב נוכחי</button>
+  <button class="tab-btn" onclick="showTab('performance', this)">ניתוח רווחים</button>
+  <button class="tab-btn" onclick="showTab('trends', this)">מגמות שוק</button>
+  <button class="tab-btn" onclick="showTab('history', this)">היסטוריית עסקאות</button>
+  <button class="tab-btn" onclick="showTab('backtest', this)">תוצאות בדיקה היסטורית</button>
+  <button class="tab-btn" onclick="showTab('settings', this)">הגדרות ומידע</button>
+</div>
+
+<div id="current" class="tab-content active">
+  <div class="summary">התיק שלך שווה היום $10,133.72 — רווח של $133.72 מאז ההתחלה.</div>
+  <p>שינוי היום: <span class='pos'>+$44.28 (+0.44%)</span> &nbsp;·&nbsp; 0 עסקאות היום.</p>
+  <p class='market-headline'>מצב השוק הכללי (SPY): <span class='trend trend-up'>מגמת עלייה</span> &nbsp;·&nbsp; יום המסחר האחרון: <span class='pos'>+0.58%</span> &nbsp;·&nbsp; בחודש האחרון: <span class='pos'>+2.97%</span></p>
+  <p>מזומן פנוי: $507.10</p>
+  <table>
+    <thead><tr><th>מניה</th><th>מניות</th><th>מחיר קנייה ממוצע</th><th>מחיר נוכחי</th><th>שווי</th><th>רווח/הפסד</th></tr></thead>
+    <tbody>
+    <tr><td>AAPL</td><td>0.8850</td><td>$338.98</td><td>$336.64</td><td>$297.93</td><td class='neg'>-$2.07</td></tr>
+<tr><td>AGG</td><td>1.0643</td><td>$93.96</td><td>$94.59</td><td>$100.67</td><td class='pos'>$0.67</td></tr>
+<tr><td>CVX</td><td>1.4783</td><td>$202.93</td><td>$211.88</td><td>$313.23</td><td class='pos'>$13.23</td></tr>
+<tr><td>JNJ</td><td>1.1332</td><td>$264.74</td><td>$261.30</td><td>$296.10</td><td class='neg'>-$3.90</td></tr>
+<tr><td>JPM</td><td>0.8800</td><td>$340.90</td><td>$333.02</td><td>$293.07</td><td class='neg'>-$6.93</td></tr>
+<tr><td>KO</td><td>3.4598</td><td>$86.71</td><td>$88.07</td><td>$304.69</td><td class='pos'>$4.69</td></tr>
+<tr><td>META</td><td>0.4047</td><td>$741.25</td><td>$718.38</td><td>$290.74</td><td class='neg'>-$9.26</td></tr>
+<tr><td>MSFT</td><td>0.5981</td><td>$501.61</td><td>$535.14</td><td>$320.05</td><td class='pos'>$20.05</td></tr>
+<tr><td>NVDA</td><td>1.3077</td><td>$229.41</td><td>$229.35</td><td>$299.92</td><td class='neg'>-$0.08</td></tr>
+<tr><td>PFE</td><td>10.5634</td><td>$28.40</td><td>$28.26</td><td>$298.57</td><td class='neg'>-$1.43</td></tr>
+<tr><td>V</td><td>0.8259</td><td>$363.23</td><td>$385.57</td><td>$318.46</td><td class='pos'>$18.46</td></tr>
+<tr><td>VOO</td><td>7.5542</td><td>$707.28</td><td>$715.56</td><td>$5,405.49</td><td class='pos'>$62.53</td></tr>
+<tr><td>VXUS</td><td>1.7655</td><td>$84.96</td><td>$84.81</td><td>$149.74</td><td class='neg'>-$0.26</td></tr>
+<tr><td>XLE</td><td>4.8031</td><td>$62.46</td><td>$65.04</td><td>$312.42</td><td class='pos'>$12.42</td></tr>
+<tr><td>XLK</td><td>1.5565</td><td>$192.74</td><td>$198.83</td><td>$309.48</td><td class='pos'>$9.48</td></tr>
+<tr><td>XOM</td><td>1.8715</td><td>$160.30</td><td>$168.89</td><td>$316.08</td><td class='pos'>$16.08</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div id="performance" class="tab-content">
+  
+    <div class="perf-grid"><div class='perf-card'><div class='perf-label'>שבוע</div><div class='perf-value pos'>$131.07</div><div><span class='pos'>+1.31%</span></div><div class='muted'>SPY: <span class='pos'>+1.14%</span> · מעל המדד ב-0.17%</div></div><div class='perf-card dim'><div class='perf-label'>חודש</div><div class='muted'>עדיין אין חודש של נתונים (הסימולציה רצה מ-22/09/2026).</div></div><div class='perf-card dim'><div class='perf-label'>3 חודשים</div><div class='muted'>עדיין אין 3 חודשים של נתונים (הסימולציה רצה מ-22/09/2026).</div></div><div class='perf-card dim'><div class='perf-label'>שנה</div><div class='muted'>עדיין אין שנה של נתונים (הסימולציה רצה מ-22/09/2026).</div></div><div class='perf-card'><div class='perf-label'>מההתחלה</div><div class='perf-value pos'>$133.72</div><div><span class='pos'>+1.34%</span></div><div class='muted'>SPY: <span class='pos'>+0.65%</span> · מעל המדד ב-0.68%</div></div></div>
+    
+    <div class="chart">
+      <div class="chart-legend"><span class="lg-nav">■ התיק שלי (+1.34%)</span>
+      <span class="lg-bench">■ SPY (+0.65%)</span></div>
+      <svg viewBox="0 0 600 200" preserveAspectRatio="none" role="img" aria-label="גרף ביצועים">
+        <line x1="10.0" x2="590.0" y1="98.3" y2="98.3" class="zero"/>
+        <polyline points="10.0,98.3 54.6,145.8 99.2,151.2 143.8,115.6 188.5,164.6 233.1,176.6 277.7,190.0 322.3,178.4 366.9,130.2 411.5,85.9 456.2,49.5 500.8,65.5 545.4,93.6 590.0,55.2" class="bench"/>
+        <polyline points="10.0,105.8 54.6,104.0 99.2,90.6 143.8,85.6 188.5,97.1 233.1,102.3 277.7,107.7 322.3,102.8 366.9,96.5 411.5,56.8 456.2,30.0 500.8,44.3 545.4,48.5 590.0,10.0" class="nav"/>
+      </svg>
+      <div class="chart-axis"><span>22/09</span><span>09/10</span></div>
+    </div>
+    
+    <ul class="stat-list">
+      <li>מושקע: <strong>$9,626.62</strong> (95% מהתיק) · מזומן: <strong>$507.10</strong> (5%)</li>
+      <li>רווח/הפסד על הנייר (פוזיציות פתוחות): <strong class="pos">$133.66</strong>
+       · רווח/הפסד ממומש (ממכירות): <strong class="pos">$0.06</strong></li>
+      <li>עסקאות: 17 קניות, 97 מכירות</li>
+    </ul>
+    <table>
+      <thead><tr><th>נייר ערך</th><th>עלות</th><th>שווי</th><th>על הנייר</th><th>%</th><th>ממומש</th><th>סה"כ</th></tr></thead>
+      <tbody><tr><td>VOO</td><td>$5,342.96</td><td>$5,405.49</td><td class='pos'>$62.53</td><td><span class='pos'>+1.17%</span></td><td class='pos'>$0.06</td><td class='pos'>$62.59</td></tr><tr><td>MSFT</td><td>$300.00</td><td>$320.05</td><td class='pos'>$20.05</td><td><span class='pos'>+6.68%</span></td><td class='pos'>$0.00</td><td class='pos'>$20.05</td></tr><tr><td>V</td><td>$300.00</td><td>$318.46</td><td class='pos'>$18.46</td><td><span class='pos'>+6.15%</span></td><td class='pos'>$0.00</td><td class='pos'>$18.46</td></tr><tr><td>XOM</td><td>$300.00</td><td>$316.08</td><td class='pos'>$16.08</td><td><span class='pos'>+5.36%</span></td><td class='pos'>$0.00</td><td class='pos'>$16.08</td></tr><tr><td>CVX</td><td>$300.00</td><td>$313.23</td><td class='pos'>$13.23</td><td><span class='pos'>+4.41%</span></td><td class='pos'>$0.00</td><td class='pos'>$13.23</td></tr><tr><td>XLE</td><td>$300.00</td><td>$312.42</td><td class='pos'>$12.42</td><td><span class='pos'>+4.14%</span></td><td class='pos'>$0.00</td><td class='pos'>$12.42</td></tr><tr><td>XLK</td><td>$300.00</td><td>$309.48</td><td class='pos'>$9.48</td><td><span class='pos'>+3.16%</span></td><td class='pos'>$0.00</td><td class='pos'>$9.48</td></tr><tr><td>KO</td><td>$300.00</td><td>$304.69</td><td class='pos'>$4.69</td><td><span class='pos'>+1.56%</span></td><td class='pos'>$0.00</td><td class='pos'>$4.69</td></tr><tr><td>AGG</td><td>$100.00</td><td>$100.67</td><td class='pos'>$0.67</td><td><span class='pos'>+0.67%</span></td><td class='pos'>$0.00</td><td class='pos'>$0.67</td></tr><tr><td>NVDA</td><td>$300.00</td><td>$299.92</td><td class='neg'>-$0.08</td><td><span class='neg'>-0.03%</span></td><td class='pos'>$0.00</td><td class='neg'>-$0.08</td></tr><tr><td>VXUS</td><td>$150.00</td><td>$149.74</td><td class='neg'>-$0.26</td><td><span class='neg'>-0.18%</span></td><td class='pos'>$0.00</td><td class='neg'>-$0.26</td></tr><tr><td>PFE</td><td>$300.00</td><td>$298.57</td><td class='neg'>-$1.43</td><td><span class='neg'>-0.48%</span></td><td class='pos'>$0.00</td><td class='neg'>-$1.43</td></tr><tr><td>AAPL</td><td>$300.00</td><td>$297.93</td><td class='neg'>-$2.07</td><td><span class='neg'>-0.69%</span></td><td class='pos'>$0.00</td><td class='neg'>-$2.07</td></tr><tr><td>JNJ</td><td>$300.00</td><td>$296.10</td><td class='neg'>-$3.90</td><td><span class='neg'>-1.30%</span></td><td class='pos'>$0.00</td><td class='neg'>-$3.90</td></tr><tr><td>JPM</td><td>$300.00</td><td>$293.07</td><td class='neg'>-$6.93</td><td><span class='neg'>-2.31%</span></td><td class='pos'>$0.00</td><td class='neg'>-$6.93</td></tr><tr><td>META</td><td>$300.00</td><td>$290.74</td><td class='neg'>-$9.26</td><td><span class='neg'>-3.09%</span></td><td class='pos'>$0.00</td><td class='neg'>-$9.26</td></tr></tbody>
+    </table>
+    <p class='muted'>החישוב מבוסס על מחירי סגירה יומיים. ההשוואה למדד (SPY) מראה מה היה קורה אילו כל הכסף היה מושקע במדד באותה תקופה.</p>
+    
+</div>
+
+<div id="trends" class="tab-content">
+  
+    <p class='market-headline'>מצב השוק הכללי (SPY): <span class='trend trend-up'>מגמת עלייה</span> &nbsp;·&nbsp; יום המסחר האחרון: <span class='pos'>+0.58%</span> &nbsp;·&nbsp; בחודש האחרון: <span class='pos'>+2.97%</span></p>
+    <p>מתוך 26 ניירות ערך במעקב: <span class='pos'>16 במגמת עלייה</span>, <span class='neg'>3 במגמת ירידה</span>, 6 בתיקון בתוך עלייה, 1 בהתאוששות בתוך ירידה.</p>
+    <table>
+      <thead><tr><th>נייר ערך</th><th>מחיר</th><th>יום</th><th>שבוע</th><th>חודש</th><th>3 חודשים</th><th>מגמה</th><th>RSI</th></tr></thead>
+      <tbody>
+      <tr><td><strong>SPY</strong></td><td>$778.43</td><td><span class='pos'>+0.58%</span></td><td><span class='pos'>+1.14%</span></td><td><span class='pos'>+2.97%</span></td><td><span class='pos'>+4.16%</span></td><td><span class='trend trend-up'>מגמת עלייה</span></td><td>60</td></tr><tr><td>AAPL</td><td>$336.64</td><td><span class='neg'>-1.11%</span></td><td><span class='pos'>+0.88%</span></td><td><span class='pos'>+3.08%</span></td><td><span class='pos'>+6.18%</span></td><td><span class='trend trend-up'>מגמת עלייה</span></td><td>56</td></tr><tr><td>AGG</td><td>$94.59</td><td><span class='neg'>-0.04%</span></td><td><span class='pos'>+0.36%</span></td><td><span class='neg'>-1.17%</span></td><td><span class='neg'>-2.17%</span></td><td><span class='trend trend-down'>מגמת ירידה</span></td><td>40</td></tr><tr><td>AMZN</td><td>$262.45</td><td><span class='pos'>+3.30%</span></td><td><span class='pos'>+4.35%</span></td><td><span class='pos'>+4.19%</span></td><td><span class='pos'>+6.12%</span></td><td><span class='trend trend-up'>מגמת עלייה</span></td><td>59</td></tr><tr><td>BAC</td><td>$54.27</td><td><span class='pos'>+1.23%</span></td><td><span class='pos'>+0.97%</span></td><td><span class='neg'>-13.25%</span></td><td><span class='neg'>-8.32%</span></td><td><span class='trend trend-down'>מגמת ירידה</span></td><td>32</td></tr><tr><td>CAT</td><td>$800.65</td><td><span class='pos'>+0.56%</span></td><td><span class='neg'>-5.30%</span></td><td><span class='neg'>-0.54%</span></td><td><span class='neg'>-13.89%</span></td><td><span class='trend trend-pullback'>תיקון בתוך מגמת עלייה</span></td><td>45</td></tr><tr><td>CVX</td><td>$211.88</td><td><span class='pos'>+0.16%</span></td><td><span class='pos'>+2.51%</span></td><td><span class='neg'>-0.41%</span></td><td><span class='pos'>+17.30%</span></td><td><span class='trend trend-up'>מגמת עלייה</span></td><td>60</td></tr><tr><td>DIS</td><td>$108.07</td><td><span class='pos'>+0.98%</span></td><td><span class='pos'>+5.75%</span></td><td><span class='pos'>+2.13%</span></td><td><span class='pos'>+12.57%</span></td><td><span class='trend trend-up'>מגמת עלייה</span></td><td>59</td></tr><tr><td>GOOGL</td><td>$351.66</td><td><span class='pos'>+0.97%</span></td><td><span class='pos'>+2.38%</span></td><td><span class='pos'>+5.73%</span></td><td><span class='neg'>-0.18%</span></td><td><span class='trend trend-up'>מגמת עלייה</span></td><td>56</td></tr><tr><td>HD</td><td>$290.83</td><td><span class='neg'>-1.57%</span></td><td><span class='pos'>+2.82%</span></td><td><span class='neg'>-4.86%</span></td><td><span class='neg'>-13.09%</span></td><td><span class='trend trend-down'>מגמת ירידה</span></td><td>42</td></tr><tr><td>JNJ</td><td>$261.30</td><td><span class='pos'>+1.88%</span></td><td><span class='pos'>+2.06%</span></td><td><span class='neg'>-1.90%</span></td><td><span class='pos'>+1.87%</span></td><td><span class='trend trend-pullback'>תיקון בתוך מגמת עלייה</span></td><td>47</td></tr><tr><td>JPM</td><td>$333.02</td><td><span class='pos'>+0.48%</span></td><td><span class='pos'>+0.69%</span></td><td><span class='neg'>-5.34%</span></td><td><span class='pos'>+0.05%</span></td><td><span class='trend trend-pullback'>תיקון בתוך מגמת עלייה</span></td><td>40</td></tr><tr><td>KO</td><td>$88.07</td><td><span class='pos'>+0.34%</span></td><td><span class='pos'>+2.82%</span></td><td><span class='pos'>+0.87%</span></td><td><span class='pos'>+5.15%</span></td><td><span class='trend trend-up'>מגמת עלייה</span></td><td>55</td></tr><tr><td>META</td><td>$718.38</td><td><span class='neg'>-0.35%</span></td><td><span class='neg'>-1.33%</span></td><td><span class='pos'>+11.57%</span></td><td><span class='pos'>+9.47%</span></td><td><span class='trend trend-up'>מגמת עלייה</span></td><td>57</td></tr><tr><td>MSFT</td><td>$535.14</td><td><span class='pos'>+2.40%</span></td><td><span class='pos'>+3.40%</span></td><td><span class='pos'>+8.67%</span></td><td><span class='pos'>+37.13%</span></td><td><span class='trend trend-up'>מגמת עלייה</span></td><td>68</td></tr><tr><td>NVDA</td><td>$229.35</td><td><span class='neg'>-0.49%</span></td><td><span class='neg'>-1.97%</span></td><td><span class='pos'>+5.03%</span></td><td><span class='pos'>+12.81%</span></td><td><span class='trend trend-up'>מגמת עלייה</span></td><td>53</td></tr><tr><td>PFE</td><td>$28.26</td><td><span class='pos'>+1.60%</span></td><td><span class='pos'>+1.67%</span></td><td><span class='pos'>+2.22%</span></td><td><span class='pos'>+17.48%</span></td><td><span class='trend trend-up'>מגמת עלייה</span></td><td>56</td></tr><tr><td>PG</td><td>$151.29</td><td><span class='pos'>+0.46%</span></td><td><span class='pos'>+4.40%</span></td><td><span class='pos'>+5.82%</span></td><td><span class='pos'>+2.73%</span></td><td><span class='trend trend-up'>מגמת עלייה</span></td><td>62</td></tr><tr><td>UNH</td><td>$378.77</td><td><span class='pos'>+2.11%</span></td><td><span class='pos'>+1.85%</span></td><td><span class='neg'>-1.85%</span></td><td><span class='neg'>-11.18%</span></td><td><span class='trend trend-pullback'>תיקון בתוך מגמת עלייה</span></td><td>49</td></tr><tr><td>V</td><td>$385.57</td><td><span class='pos'>+2.79%</span></td><td><span class='pos'>+6.91%</span></td><td><span class='pos'>+5.00%</span></td><td><span class='pos'>+7.98%</span></td><td><span class='trend trend-up'>מגמת עלייה</span></td><td>68</td></tr><tr><td>VOO</td><td>$715.56</td><td><span class='pos'>+0.60%</span></td><td><span class='pos'>+1.13%</span></td><td><span class='pos'>+2.98%</span></td><td><span class='pos'>+4.20%</span></td><td><span class='trend trend-up'>מגמת עלייה</span></td><td>60</td></tr><tr><td>VXUS</td><td>$84.81</td><td><span class='pos'>+0.84%</span></td><td><span class='neg'>-0.73%</span></td><td><span class='neg'>-1.53%</span></td><td><span class='pos'>+1.41%</span></td><td><span class='trend trend-pullback'>תיקון בתוך מגמת עלייה</span></td><td>44</td></tr><tr><td>WMT</td><td>$111.35</td><td><span class='pos'>+0.71%</span></td><td><span class='pos'>+6.80%</span></td><td><span class='pos'>+5.31%</span></td><td><span class='neg'>-2.76%</span></td><td><span class='trend trend-recovery'>התאוששות בתוך מגמת ירידה</span></td><td>61</td></tr><tr><td>XLE</td><td>$65.04</td><td><span class='neg'>-0.30%</span></td><td><span class='pos'>+3.54%</span></td><td><span class='pos'>+0.77%</span></td><td><span class='pos'>+15.32%</span></td><td><span class='trend trend-up'>מגמת עלייה</span></td><td>62</td></tr><tr><td>XLF</td><td>$54.72</td><td><span class='pos'>+0.91%</span></td><td><span class='pos'>+2.31%</span></td><td><span class='neg'>-3.43%</span></td><td><span class='neg'>-2.05%</span></td><td><span class='trend trend-pullback'>תיקון בתוך מגמת עלייה</span></td><td>46</td></tr><tr><td>XLK</td><td>$198.83</td><td><span class='pos'>+0.53%</span></td><td><span class='neg'>-0.49%</span></td><td><span class='pos'>+7.47%</span></td><td><span class='pos'>+9.81%</span></td><td><span class='trend trend-up'>מגמת עלייה</span></td><td>61</td></tr><tr><td>XOM</td><td>$168.89</td><td><span class='pos'>+0.23%</span></td><td><span class='pos'>+2.98%</span></td><td><span class='pos'>+2.22%</span></td><td><span class='pos'>+17.63%</span></td><td><span class='trend trend-up'>מגמת עלייה</span></td><td>64</td></tr>
+      </tbody>
+    </table>
+    <p class='muted'>איך נקבעת המגמה: מחיר מעל הממוצע של 200 הימים האחרונים = מגמה ארוכת טווח עולה;
+    מחיר מעל הממוצע של 50 הימים = מגמה קצרת טווח עולה. שתיהן עולות = "מגמת עלייה", שתיהן יורדות = "מגמת ירידה".
+    המידע כאן להצגה בלבד ואינו ייעוץ השקעות.</p>
+    
+</div>
+
+<div id="history" class="tab-content">
+  
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-09</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $716.28 | סכום: $0.06 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-09</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $716.19 | סכום: $0.04 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-09</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $716.10 | סכום: $0.01 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-09</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $716.13 | סכום: $0.01 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-09</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $716.12 | סכום: $0.02 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-09</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $716.28 | סכום: $0.02 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-09</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $715.62 | סכום: $0.01 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-09</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $715.55 | סכום: $0.09 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-09</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $715.40 | סכום: $0.03 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-09</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $715.38 | סכום: $0.03 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-09</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $715.28 | סכום: $0.05 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $718.26 | סכום: $0.03 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $718.24 | סכום: $0.07 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $718.41 | סכום: $0.08 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $718.27 | סכום: $0.02 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $718.23 | סכום: $0.06 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $718.20 | סכום: $0.03 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0002 | מחיר: $718.19 | סכום: $0.13 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $718.03 | סכום: $0.04 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $717.98 | סכום: $0.08 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $717.78 | סכום: $0.04 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0002 | מחיר: $717.89 | סכום: $0.11 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $717.71 | סכום: $0.03 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $717.53 | סכום: $0.03 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $717.50 | סכום: $0.04 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $717.40 | סכום: $0.03 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $717.24 | סכום: $0.04 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $717.39 | סכום: $0.03 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0002 | מחיר: $717.45 | סכום: $0.14 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $717.17 | סכום: $0.02 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $717.17 | סכום: $0.06 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $717.07 | סכום: $0.03 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0003 | מחיר: $717.10 | סכום: $0.19 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0003 | מחיר: $716.82 | סכום: $0.21 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $716.56 | סכום: $0.03 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $716.48 | סכום: $0.04 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $716.19 | סכום: $0.01 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $716.11 | סכום: $0.01 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $716.01 | סכום: $0.01 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $715.50 | סכום: $0.07 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0009 | מחיר: $715.70 | סכום: $0.61 |
+                מקור: sweep | רווח ממומש: $0.01</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-06</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0002 | מחיר: $715.26 | סכום: $0.16 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0002 | מחיר: $713.83 | סכום: $0.16 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $713.55 | סכום: $0.03 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $713.52 | סכום: $0.06 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $713.47 | סכום: $0.05 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $713.43 | סכום: $0.06 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0002 | מחיר: $713.31 | סכום: $0.15 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $713.08 | סכום: $0.08 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $712.97 | סכום: $0.02 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $712.95 | סכום: $0.10 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $712.81 | סכום: $0.06 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $712.68 | סכום: $0.04 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $712.57 | סכום: $0.02 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $712.56 | סכום: $0.05 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $712.58 | סכום: $0.01 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $712.50 | סכום: $0.01 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $712.42 | סכום: $0.04 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $712.26 | סכום: $0.08 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $712.16 | סכום: $0.02 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $712.15 | סכום: $0.04 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0002 | מחיר: $712.22 | סכום: $0.14 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $711.89 | סכום: $0.04 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $711.86 | סכום: $0.06 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $711.76 | סכום: $0.02 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $711.70 | סכום: $0.08 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $711.60 | סכום: $0.10 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $711.48 | סכום: $0.01 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $711.45 | סכום: $0.05 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $711.33 | סכום: $0.05 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $711.27 | סכום: $0.05 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $711.11 | סכום: $0.01 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $711.00 | סכום: $0.06 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $710.94 | סכום: $0.05 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $710.91 | סכום: $0.05 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $710.84 | סכום: $0.01 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $710.82 | סכום: $0.08 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $710.59 | סכום: $0.05 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $710.54 | סכום: $0.02 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $710.47 | סכום: $0.04 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $710.46 | סכום: $0.08 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $710.28 | סכום: $0.03 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $710.31 | סכום: $0.05 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0002 | מחיר: $710.31 | סכום: $0.15 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $710.32 | סכום: $0.04 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0002 | מחיר: $710.34 | סכום: $0.16 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $710.05 | סכום: $0.01 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0002 | מחיר: $710.08 | סכום: $0.12 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0002 | מחיר: $709.88 | סכום: $0.12 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $709.66 | סכום: $0.08 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0000 | מחיר: $709.53 | סכום: $0.01 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0002 | מחיר: $709.47 | סכום: $0.15 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $709.17 | סכום: $0.09 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $708.94 | סכום: $0.09 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0001 | מחיר: $708.92 | סכום: $0.04 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0008 | מחיר: $708.46 | סכום: $0.56 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card sell">
+              <div class="trade-head">
+                <strong>מכירה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">מכירה חלקית של קרן המדד VOO כדי לממן קנייה חדשה — הכסף עבר מהמדד להזדמנות.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.0003 | מחיר: $707.61 | סכום: $0.20 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card buy">
+              <div class="trade-head">
+                <strong>קנייה VOO</strong>
+                <span class="trade-date">2026-10-05</span>
+              </div>
+              <p class="trade-reason">השקעת מזומן פנוי בקרן המדד VOO — כדי שהכסף ירוויח עם השוק במקום לעמוד בצד, עד שתימצא הזדמנות קנייה.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 7.2080 | מחיר: $707.52 | סכום: $5,099.78 |
+                מקור: sweep | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card buy">
+              <div class="trade-head">
+                <strong>קנייה AGG</strong>
+                <span class="trade-date">2026-10-01</span>
+              </div>
+              <p class="trade-reason">רכישה שוטפת לפי תוכנית ההשקעה החודשית (DCA) — פיזור קבוע בין קרנות הליבה.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 1.0643 | מחיר: $93.96 | סכום: $100.00 |
+                מקור: dca | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card buy">
+              <div class="trade-head">
+                <strong>קנייה VXUS</strong>
+                <span class="trade-date">2026-10-01</span>
+              </div>
+              <p class="trade-reason">רכישה שוטפת לפי תוכנית ההשקעה החודשית (DCA) — פיזור קבוע בין קרנות הליבה.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 1.7655 | מחיר: $84.96 | סכום: $150.00 |
+                מקור: dca | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card buy">
+              <div class="trade-head">
+                <strong>קנייה VOO</strong>
+                <span class="trade-date">2026-10-01</span>
+              </div>
+              <p class="trade-reason">רכישה שוטפת לפי תוכנית ההשקעה החודשית (DCA) — פיזור קבוע בין קרנות הליבה.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.3559 | מחיר: $702.53 | סכום: $250.00 |
+                מקור: dca | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card buy">
+              <div class="trade-head">
+                <strong>קנייה JNJ</strong>
+                <span class="trade-date">2026-09-30</span>
+              </div>
+              <p class="trade-reason">הציון הכללי של המניה (מגמה, מומנטום ותנודתיות ביחד) חצה את סף הקנייה, גם בלי איתות טכני בולט יחיד.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 1.1332 | מחיר: $264.74 | סכום: $300.00 |
+                מקור: opportunistic | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card buy">
+              <div class="trade-head">
+                <strong>קנייה KO</strong>
+                <span class="trade-date">2026-09-29</span>
+              </div>
+              <p class="trade-reason">הציון הכללי של המניה (מגמה, מומנטום ותנודתיות ביחד) חצה את סף הקנייה, גם בלי איתות טכני בולט יחיד.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 3.4598 | מחיר: $86.71 | סכום: $300.00 |
+                מקור: opportunistic | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card buy">
+              <div class="trade-head">
+                <strong>קנייה PFE</strong>
+                <span class="trade-date">2026-09-29</span>
+              </div>
+              <p class="trade-reason">המניה במגמת עלייה יציבה ונסחרת מעל הממוצע הנע שלה. היא גם מציגה חוזק יחסי טוב מול שאר רשימת המעקב (מקום 9 מתוך 23).</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 10.5634 | מחיר: $28.40 | סכום: $300.00 |
+                מקור: opportunistic | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card buy">
+              <div class="trade-head">
+                <strong>קנייה XOM</strong>
+                <span class="trade-date">2026-09-25</span>
+              </div>
+              <p class="trade-reason">הציון הכללי של המניה (מגמה, מומנטום ותנודתיות ביחד) חצה את סף הקנייה, גם בלי איתות טכני בולט יחיד.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 1.8715 | מחיר: $160.30 | סכום: $300.00 |
+                מקור: opportunistic | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card buy">
+              <div class="trade-head">
+                <strong>קנייה XLK</strong>
+                <span class="trade-date">2026-09-24</span>
+              </div>
+              <p class="trade-reason">המניה במגמת עלייה יציבה ונסחרת מעל הממוצע הנע שלה. היא גם מציגה חוזק יחסי טוב מול שאר רשימת המעקב (מקום 3 מתוך 23).</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 1.5565 | מחיר: $192.74 | סכום: $300.00 |
+                מקור: opportunistic | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card buy">
+              <div class="trade-head">
+                <strong>קנייה V</strong>
+                <span class="trade-date">2026-09-22</span>
+              </div>
+              <p class="trade-reason">הציון הכללי של המניה (מגמה, מומנטום ותנודתיות ביחד) חצה את סף הקנייה, גם בלי איתות טכני בולט יחיד.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.8259 | מחיר: $363.23 | סכום: $300.00 |
+                מקור: opportunistic | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card buy">
+              <div class="trade-head">
+                <strong>קנייה CVX</strong>
+                <span class="trade-date">2026-09-22</span>
+              </div>
+              <p class="trade-reason">הציון הכללי של המניה (מגמה, מומנטום ותנודתיות ביחד) חצה את סף הקנייה, גם בלי איתות טכני בולט יחיד.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 1.4783 | מחיר: $202.93 | סכום: $300.00 |
+                מקור: opportunistic | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card buy">
+              <div class="trade-head">
+                <strong>קנייה JPM</strong>
+                <span class="trade-date">2026-09-22</span>
+              </div>
+              <p class="trade-reason">הציון הכללי של המניה (מגמה, מומנטום ותנודתיות ביחד) חצה את סף הקנייה, גם בלי איתות טכני בולט יחיד.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.8800 | מחיר: $340.90 | סכום: $300.00 |
+                מקור: opportunistic | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card buy">
+              <div class="trade-head">
+                <strong>קנייה NVDA</strong>
+                <span class="trade-date">2026-09-22</span>
+              </div>
+              <p class="trade-reason">המניה במגמת עלייה יציבה ונסחרת מעל הממוצע הנע שלה. היא גם מציגה חוזק יחסי טוב מול שאר רשימת המעקב (מקום 4 מתוך 23).</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 1.3077 | מחיר: $229.41 | סכום: $300.00 |
+                מקור: opportunistic | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card buy">
+              <div class="trade-head">
+                <strong>קנייה XLE</strong>
+                <span class="trade-date">2026-09-22</span>
+              </div>
+              <p class="trade-reason">הציון הכללי של המניה (מגמה, מומנטום ותנודתיות ביחד) חצה את סף הקנייה, גם בלי איתות טכני בולט יחיד.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 4.8031 | מחיר: $62.46 | סכום: $300.00 |
+                מקור: opportunistic | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card buy">
+              <div class="trade-head">
+                <strong>קנייה AAPL</strong>
+                <span class="trade-date">2026-09-22</span>
+              </div>
+              <p class="trade-reason">המניה במגמת עלייה יציבה ונסחרת מעל הממוצע הנע שלה. היא גם מציגה חוזק יחסי טוב מול שאר רשימת המעקב (מקום 2 מתוך 23).</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.8850 | מחיר: $338.98 | סכום: $300.00 |
+                מקור: opportunistic | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card buy">
+              <div class="trade-head">
+                <strong>קנייה MSFT</strong>
+                <span class="trade-date">2026-09-22</span>
+              </div>
+              <p class="trade-reason">רכישה שוטפת לפי תוכנית ההשקעה החודשית (DCA) — לא איתות טכני חריג.</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.5981 | מחיר: $501.61 | סכום: $300.00 |
+                מקור: opportunistic | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+
+            <div class="trade-card buy">
+              <div class="trade-head">
+                <strong>קנייה META</strong>
+                <span class="trade-date">2026-09-22</span>
+              </div>
+              <p class="trade-reason">המניה במגמת עלייה יציבה ונסחרת מעל הממוצע הנע שלה. היא גם מציגה חוזק יחסי טוב מול שאר רשימת המעקב (מקום 1 מתוך 23).</p>
+              <details>
+                <summary>פרטים טכניים</summary>
+                <p>מניות: 0.4047 | מחיר: $741.25 | סכום: $300.00 |
+                מקור: opportunistic | רווח ממומש: $0.00</p>
+              </details>
+            </div>
+            
+</div>
+
+<div id="backtest" class="tab-content">
+  
+    <ul class="stat-list">
+      <li>תשואה כוללת של האסטרטגיה: <strong>349.0%</strong></li>
+      <li>תשואת קנה-והחזק (SPY) להשוואה: <strong>242.2%</strong></li>
+      <li>ירידה מקסימלית (Max Drawdown): <strong>-29.0%</strong></li>
+      <li>מספר עסקאות: <strong>518</strong></li>
+      <li>תקופה: 2019-01-01 עד 2026-10-02</li>
+    </ul>
+    
+</div>
+
+<div id="settings" class="tab-content">
+  <p>איך המערכת מחליטה? כל מחזור, לכל מניה ברשימת המעקב מחושב "ציון קנייה" ו"ציון מכירה" בין 0 ל-100,
+  המבוססים על מגמת מחיר, חוזק יחסי מול השוק, מצב "קניית יתר/מכירת יתר" ותנודתיות. בנוסף, יש רכישה חודשית
+  קבועה של קרנות ליבה (VOO/VXUS/AGG) בשיטת DCA. כל עסקה מלווה בהסבר פשוט בעברית.</p>
+  <dl class="glossary">
+    <dt>RSI</dt><dd>מדד למומנטום שמראה אם מניה "נקנתה יותר מדי" או "נמכרה יותר מדי" לאחרונה.</dd>
+    <dt>SMA50 / SMA200</dt><dd>ממוצע נע של המחיר ב-50 או 200 הימים האחרונים — מציג את כיוון המגמה.</dd>
+    <dt>DCA</dt><dd>Dollar-Cost Averaging — השקעת סכום קבוע במרווחי זמן קבועים, ללא תלות במצב השוק.</dd>
+    <dt>NAV</dt><dd>שווי התיק הכולל: מזומן + שווי כל האחזקות לפי מחיר השוק הנוכחי.</dd>
+  </dl>
+  <p>שימו לב: הנתונים מגיעים מ-Yahoo Finance ואינם ברמת "טיק" בזמן אמת — האינדיקטורים מבוססים על נתונים יומיים.</p>
+</div>
+
+<script>
+function showTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>
